@@ -16,9 +16,7 @@ TaskPulse is built entirely on the Python Standard Library (`sqlite3`, `argparse
 ```text
 taskpulse/
 ├── .github/
-│   ├── PULL_REQUEST_TEMPLATE.md      # Standard PR structure with verification checklist
-│   └── workflows/
-│       └── lint-and-test.yml         # GitHub Actions CI matrix (Py 3.9 - 3.12, flake8, black, pytest)
+│   └── PULL_REQUEST_TEMPLATE.md      # Standard PR structure with verification checklist
 ├── taskpulse/
 │   ├── __init__.py                   # Package metadata and version definition
 │   ├── cli.py                        # Main CLI entrypoint using argparse (subcommands pattern)
