@@ -153,7 +153,8 @@ git push -u origin feature/my-new-task
 
 ## Coding & Testing Standards
 
-- **Standard Library Only for Runtime**: To maintain portability and simplicity, TaskPulse uses Python's standard library (`sqlite3`, `argparse`, `pathlib`, `typing`) for all runtime code. Do not add runtime dependencies without team approval.
+- **Modern SQLAlchemy 2.0 ORM**: Database interactions must strictly follow SQLAlchemy 2.0 syntax (`select(Task)`, `session.scalars()`, `session.get(Task, id)`, `Mapped[...]`, `mapped_column(...)`). Avoid legacy 1.x `session.query()` patterns.
+- **Minimal Dependencies**: Aside from `sqlalchemy`, TaskPulse uses Python's standard library (`argparse`, `pathlib`, `typing`) for CLI and system interactions.
 - **Code Formatting**: Maximum line length is **88 characters** (enforced by `black` and `flake8`).
 - **Docstrings & Types**: Every function and module must have clear docstrings explaining arguments, return types, and exceptions. Use type hints where appropriate.
 - **Test Coverage**: We maintain **>80% test coverage**. Any new feature or bug fix must include corresponding tests in `tests/`.

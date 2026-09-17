@@ -1,40 +1,86 @@
-"""Database management module for TaskPulse.
+"""Database management module for TaskPulse using SQLAlchemy 2.0.
 
-Handles SQLite database location, connection management, schema initialization,
-and versioned migrations.
+Provides modern SQLAlchemy 2.0 declarative models, engine creation,
+session context management, and schema initialization.
 """
 
 from contextlib import contextmanager
+from datetime import datetime
 import os
 from pathlib import Path
-import sqlite3
-from typing import Generator, Optional
+from typing import Any, Dict, Generator, Optional
 
-# Default database location in the user's home directory
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Engine,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    event,
+    func,
+    text,
+)
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
+
 DEFAULT_DB_FILENAME = ".taskpulse.db"
 ENV_DB_VARIABLE = "TASKPULSE_DB"
 
-# Schema migrations list. Each entry is a tuple: (version_number, sql_script)
-MIGRATIONS = [
-    (
-        1,
-        """
-        CREATE TABLE IF NOT EXISTS schema_version (
-            version INTEGER PRIMARY KEY,
-            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
+# Cache for active engines to reuse connection pools efficiently
+_ENGINES: Dict[str, Engine] = {}
 
-        CREATE TABLE IF NOT EXISTS tasks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            description TEXT,
-            status TEXT DEFAULT 'todo' CHECK(status IN ('todo', 'in_progress', 'done')),
-            priority TEXT DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high')),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        );
-        """,
-    ),
-]
+
+class Base(DeclarativeBase):
+    """Declarative base class for TaskPulse models using SQLAlchemy 2.0."""
+
+    pass
+
+
+class Task(Base):
+    """SQLAlchemy 2.0 declarative model representing a task."""
+
+    __tablename__ = "tasks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String(50), default="todo", nullable=False)
+    priority: Mapped[str] = mapped_column(String(20), default="medium", nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('todo', 'in_progress', 'done')",
+            name="check_valid_status",
+        ),
+        CheckConstraint(
+            "priority IN ('low', 'medium', 'high')",
+            name="check_valid_priority",
+        ),
+    )
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert Task instance to a serializable dictionary.
+
+        Returns:
+            Dictionary containing task attributes with ISO formatted datetime.
+        """
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "status": self.status,
+            "priority": self.priority,
+            "created_at": (self.created_at.isoformat() if self.created_at else None),
+        }
+
+    def __repr__(self) -> str:
+        return f"<Task(id={self.id}, title='{self.title}', status='{self.status}')>"
 
 
 def get_db_path(custom_path: Optional[str] = None) -> str:
@@ -61,90 +107,109 @@ def get_db_path(custom_path: Optional[str] = None) -> str:
     return str(Path.home() / DEFAULT_DB_FILENAME)
 
 
-@contextmanager
-def get_connection(
-    db_path: Optional[str] = None,
-) -> Generator[sqlite3.Connection, None, None]:
-    """Provide a transactional SQLite database connection context.
-
-    Automatically commits on successful block exit and rolls back if an
-    exception occurs. Sets row_factory to sqlite3.Row for dictionary-like
-    column access.
+def get_database_url(custom_path: Optional[str] = None) -> str:
+    """Construct an SQLite database URL for SQLAlchemy.
 
     Args:
-        db_path: Optional path to SQLite file; defaults to get_db_path().
+        custom_path: Optional path to SQLite file.
 
-    Yields:
-        sqlite3.Connection: Active database connection.
+    Returns:
+        SQLAlchemy database URL string (e.g. 'sqlite:////path/to/db').
+    """
+    path = get_db_path(custom_path)
+    return f"sqlite:///{path}"
+
+
+def get_engine(db_path: Optional[str] = None) -> Engine:
+    """Retrieve or create an SQLAlchemy 2.0 Engine for the given database path.
+
+    Configures SQLite foreign keys via engine event listeners.
+
+    Args:
+        db_path: Optional path to SQLite database.
+
+    Returns:
+        SQLAlchemy Engine instance.
     """
     path = get_db_path(db_path)
-    # Ensure parent directory exists (e.g. for custom paths or default home)
-    parent_dir = Path(path).parent
-    parent_dir.mkdir(parents=True, exist_ok=True)
+    url = get_database_url(db_path)
 
-    conn = sqlite3.connect(path)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON;")
+    # Ensure parent directory exists
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
 
+    if url not in _ENGINES:
+        engine = create_engine(url, echo=False)
+
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_connection, connection_record):
+            cursor = dbapi_connection.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+
+        _ENGINES[url] = engine
+
+    return _ENGINES[url]
+
+
+def clear_engine_cache() -> None:
+    """Dispose and clear cached database engines (useful for test isolation)."""
+    for engine in _ENGINES.values():
+        engine.dispose()
+    _ENGINES.clear()
+
+
+@contextmanager
+def get_session(
+    db_path: Optional[str] = None,
+) -> Generator[Session, None, None]:
+    """Provide a transactional SQLAlchemy 2.0 Session context.
+
+    Automatically commits on successful block exit and rolls back if an
+    exception occurs.
+
+    Args:
+        db_path: Optional path to SQLite file.
+
+    Yields:
+        Session: Active SQLAlchemy session.
+    """
+    engine = get_engine(db_path)
+    session = Session(engine)
     try:
-        yield conn
-        conn.commit()
+        yield session
+        session.commit()
     except Exception:
-        conn.rollback()
+        session.rollback()
         raise
     finally:
-        conn.close()
+        session.close()
 
 
 def init_db(db_path: Optional[str] = None) -> None:
-    """Initialize the database schema and apply pending migrations.
+    """Initialize database tables using SQLAlchemy 2.0 metadata.
 
-    Safe to run multiple times (idempotent). Automatically called before
-    any read/write operations.
+    Safe to run multiple times (idempotent). Automatically creates all
+    defined tables on Base metadata.
 
     Args:
         db_path: Optional path to SQLite database.
     """
-    with get_connection(db_path) as conn:
-        cursor = conn.cursor()
-        # Ensure schema_version table exists first
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS schema_version (
-                version INTEGER PRIMARY KEY,
-                applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """)
-
-        # Get list of already applied versions
-        cursor.execute("SELECT version FROM schema_version;")
-        applied_versions = {row["version"] for row in cursor.fetchall()}
-
-        # Apply pending migrations in order
-        for version, migration_sql in sorted(MIGRATIONS, key=lambda m: m[0]):
-            if version not in applied_versions:
-                cursor.executescript(migration_sql)
-                cursor.execute(
-                    "INSERT INTO schema_version (version) VALUES (?);",
-                    (version,),
-                )
+    engine = get_engine(db_path)
+    Base.metadata.create_all(bind=engine)
 
 
 def check_connection(db_path: Optional[str] = None) -> bool:
     """Verify that the database is accessible and functional.
 
-    Ensures the schema is initialized and executes a health-check query.
+    Ensures schema initialization and executes a text query via SQLAlchemy 2.0.
 
     Args:
         db_path: Optional path to SQLite database.
 
     Returns:
         True if the database is operational.
-
-    Raises:
-        sqlite3.Error: If the connection or query fails.
     """
     init_db(db_path)
-    with get_connection(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1;")
-        return cursor.fetchone() is not None
+    with get_session(db_path) as session:
+        result = session.execute(text("SELECT 1")).scalar()
+        return result is not None

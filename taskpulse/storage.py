@@ -1,11 +1,12 @@
-"""Data access and storage abstraction layer for TaskPulse.
+"""Data access and storage abstraction layer for TaskPulse using SQLAlchemy 2.0.
 
-Provides high-level CRUD operations on top of db.py, decoupling SQL queries
-from CLI command handlers.
+Provides high-level CRUD operations on top of db.py and the Task model,
+decoupling SQLAlchemy 2.0 queries from CLI command handlers.
 """
 
 from typing import Any, Dict, List, Optional
-from taskpulse.db import get_connection, init_db
+from sqlalchemy import select
+from taskpulse.db import Task, get_session, init_db
 
 VALID_STATUSES = ("todo", "in_progress", "done")
 VALID_PRIORITIES = ("low", "medium", "high")
@@ -18,7 +19,7 @@ def add_task(
     status: str = "todo",
     db_path: Optional[str] = None,
 ) -> int:
-    """Insert a new task into the database.
+    """Insert a new task into the database using SQLAlchemy 2.0.
 
     Args:
         title: Short title describing the task. Cannot be empty.
@@ -48,28 +49,20 @@ def add_task(
         raise ValueError(f"Invalid status '{status}'. Must be one of: {valid_s}")
 
     init_db(db_path)
-    with get_connection(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            INSERT INTO tasks (title, description, priority, status)
-            VALUES (?, ?, ?, ?);
-            """,
-            (
-                cleaned_title,
-                description.strip() if description else None,
-                priority_lower,
-                status_lower,
-            ),
+    with get_session(db_path) as session:
+        task = Task(
+            title=cleaned_title,
+            description=description.strip() if description else None,
+            priority=priority_lower,
+            status=status_lower,
         )
-        task_id = cursor.lastrowid
-        if task_id is None:
-            raise RuntimeError("Failed to retrieve created task ID from database.")
-        return task_id
+        session.add(task)
+        session.flush()
+        return task.id
 
 
 def get_task(task_id: int, db_path: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    """Retrieve a single task by its unique ID.
+    """Retrieve a single task by its unique ID using SQLAlchemy 2.0 select.
 
     Args:
         task_id: The ID of the task to fetch.
@@ -79,22 +72,14 @@ def get_task(task_id: int, db_path: Optional[str] = None) -> Optional[Dict[str, 
         A dictionary representation of the task, or None if not found.
     """
     init_db(db_path)
-    with get_connection(db_path) as conn:
-        cursor = conn.cursor()
-        cursor.execute(
-            """
-            SELECT id, title, description, status, priority, created_at
-            FROM tasks
-            WHERE id = ?;
-            """,
-            (task_id,),
-        )
-        row = cursor.fetchone()
-        return dict(row) if row else None
+    with get_session(db_path) as session:
+        stmt = select(Task).where(Task.id == task_id)
+        task = session.scalars(stmt).one_or_none()
+        return task.to_dict() if task else None
 
 
 # ============================================================================
-# INTERN STARTER TASKS: Storage Layer Hooks
+# INTERN STARTER TASKS: Storage Layer Hooks (SQLAlchemy 2.0)
 # ============================================================================
 
 
@@ -105,20 +90,19 @@ def list_tasks(
 ) -> List[Dict[str, Any]]:
     """List tasks, optionally filtered by status and/or priority.
 
-    TODO (Intern Task 1):
-    1. Validate status/priority arguments if provided.
-    2. Build query with optional WHERE filters.
-    3. Return a list of task dictionaries ordered by id ascending.
-
-    Example implementation starter:
-        init_db(db_path)
-        with get_connection(db_path) as conn:
-            query = (
-                "SELECT id, title, description, status, priority, created_at "
-                "FROM tasks"
-            )
-            params = []
-            ...
+    TODO (Intern Task 1 - SQLAlchemy 2.0 query):
+    1. Initialize db and open a session:
+           init_db(db_path)
+           with get_session(db_path) as session:
+    2. Build SQLAlchemy 2.0 select statement:
+           stmt = select(Task)
+           if status:
+               stmt = stmt.where(Task.status == status.lower().strip())
+           if priority:
+               stmt = stmt.where(Task.priority == priority.lower().strip())
+    3. Order by ID and execute:
+           tasks = session.scalars(stmt.order_by(Task.id)).all()
+           return [t.to_dict() for t in tasks]
     """
     raise NotImplementedError(
         "list_tasks() is a starter task for interns! "
@@ -133,10 +117,12 @@ def update_task_status(
 ) -> bool:
     """Update the status of an existing task.
 
-    TODO (Intern Task 2):
+    TODO (Intern Task 2 - SQLAlchemy 2.0 update):
     1. Validate that status is in VALID_STATUSES.
-    2. Execute: UPDATE tasks SET status = ? WHERE id = ?
-    3. Return True if a row was updated (cursor.rowcount > 0), False otherwise.
+    2. Fetch task via session.get(Task, task_id).
+    3. If task is None, return False.
+    4. Update attribute: task.status = status.lower().strip()
+    5. Return True (session commits automatically on context manager exit).
     """
     raise NotImplementedError(
         "update_task_status() is a starter task for interns! "
@@ -147,9 +133,11 @@ def update_task_status(
 def delete_task(task_id: int, db_path: Optional[str] = None) -> bool:
     """Delete a task by its ID.
 
-    TODO (Intern Task 3):
-    1. Execute: DELETE FROM tasks WHERE id = ?
-    2. Return True if a row was deleted (cursor.rowcount > 0), False otherwise.
+    TODO (Intern Task 3 - SQLAlchemy 2.0 delete):
+    1. Fetch task via session.get(Task, task_id).
+    2. If task is None, return False.
+    3. Delete object: session.delete(task)
+    4. Return True (session commits automatically on context manager exit).
     """
     raise NotImplementedError(
         "delete_task() is a starter task for interns! "

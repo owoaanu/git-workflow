@@ -11,30 +11,32 @@
 
 ## Architecture & Directory Layout
 
-TaskPulse is built entirely on the Python Standard Library (`sqlite3`, `argparse`) with zero external runtime dependencies.
+TaskPulse uses modern **SQLAlchemy 2.0** ORM for type-safe database models and queries with SQLite, paired with Python's built-in `argparse` for a clean, modular CLI architecture.
 
 ```text
 taskpulse/
 ├── .github/
-│   └── PULL_REQUEST_TEMPLATE.md      # Standard PR structure with verification checklist
+│   ├── PULL_REQUEST_TEMPLATE.md      # Standard PR structure with verification checklist
+│   └── workflows/
+│       └── lint-and-test.yml         # GitHub Actions CI matrix (Py 3.9 - 3.12, flake8, black, pytest)
 ├── taskpulse/
 │   ├── __init__.py                   # Package metadata and version definition
 │   ├── cli.py                        # Main CLI entrypoint using argparse (subcommands pattern)
-│   ├── db.py                         # SQLite setup, connection manager, schema migrations
-│   ├── storage.py                    # CRUD abstraction layer on top of db.py
+│   ├── db.py                         # SQLAlchemy 2.0 models, engine, session management
+│   ├── storage.py                    # CRUD abstraction layer using SQLAlchemy 2.0 select/scalars
 │   └── commands/                     # Pluggable CLI subcommands
 │       ├── __init__.py
 │       ├── ping.py                   # Basic health-check command
 │       └── add.py                    # Starter implementation for adding a task
 ├── tests/
 │   ├── __init__.py
-│   ├── test_db.py                    # Unit tests for database connection and migrations
+│   ├── test_db.py                    # Unit tests for SQLAlchemy 2.0 models & sessions
 │   ├── test_storage.py               # Unit tests for storage CRUD layer
 │   └── test_commands.py              # CLI integration tests for ping and add
 ├── CONTRIBUTING.md                   # Git workflow rules, branch naming, commit conventions, PR guide
 ├── README.md                         # Setup instructions, architecture overview, CLI reference
 ├── requirements-dev.txt              # pytest, pytest-cov, flake8, black
-└── pyproject.toml                    # PEP 621 package specification exposing `taskpulse` command
+└── pyproject.toml                    # PEP 621 package specification with SQLAlchemy 2.0 dependency
 ```
 
 ### Layered Architecture
@@ -44,14 +46,14 @@ flowchart LR
     User([User Terminal]) --> CLI[taskpulse.cli]
     CLI --> Commands[taskpulse.commands.*]
     Commands --> Storage[taskpulse.storage]
-    Storage --> DB[taskpulse.db]
+    Storage --> DB["taskpulse.db (SQLAlchemy 2.0)"]
     DB --> SQLite[(SQLite: ~/.taskpulse.db)]
 ```
 
 1. **CLI Layer (`taskpulse/cli.py` & `taskpulse/commands/`)**: Uses `argparse` with a pluggable subcommands pattern. Each command lives in its own module with dedicated subparser registration and execution logic.
-2. **Storage Layer (`taskpulse/storage.py`)**: Data access layer that decouples CLI commands from SQL queries and provides data validation.
-3. **Database Layer (`taskpulse/db.py`)**: Context-managed SQLite connection handling with automatic rollback, foreign key enforcement, and automated versioned schema migrations.
-4. **Data Store**: Defaults to `~/.taskpulse.db` (or overridden via `TASKPULSE_DB` environment variable or `--db` flag).
+2. **Storage Layer (`taskpulse/storage.py`)**: Data access layer that decouples CLI commands from database queries and provides input validation.
+3. **Database Layer (`taskpulse/db.py`)**: Modern SQLAlchemy 2.0 DeclarativeBase with `Mapped` typed columns, `Task` model, transactional `Session` context management, and automatic table creation.
+4. **Data Store**: Defaults to SQLite at `~/.taskpulse.db` (or overridden via `TASKPULSE_DB` environment variable or `--db` flag).
 
 ---
 
