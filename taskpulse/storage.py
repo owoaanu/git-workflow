@@ -49,7 +49,7 @@ def add_task(
         raise ValueError(f"Invalid status '{status}'. Must be one of: {valid_s}")
 
     init_db(db_path)
-    with get_session(db_path) as session:
+    with get_session() as session:
         task = Task(
             title=cleaned_title,
             description=description.strip() if description else None,

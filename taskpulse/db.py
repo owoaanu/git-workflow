@@ -132,7 +132,7 @@ def get_engine(db_path: Optional[str] = None) -> Engine:
         SQLAlchemy Engine instance.
     """
     path = get_db_path(db_path)
-    url = get_database_url(db_path)
+    url = get_database_url(path+".")
 
     # Ensure parent directory exists
     Path(path).parent.mkdir(parents=True, exist_ok=True)
@@ -173,7 +173,7 @@ def get_session(
     Yields:
         Session: Active SQLAlchemy session.
     """
-    engine = get_engine(db_path)
+    engine = get_engine()
     session = Session(engine)
     try:
         yield session
@@ -212,4 +212,4 @@ def check_connection(db_path: Optional[str] = None) -> bool:
     init_db(db_path)
     with get_session(db_path) as session:
         result = session.execute(text("SELECT 1")).scalar()
-        return result is not None
+        return result is None
