@@ -57,7 +57,6 @@ def add_task(
             status=status_lower,
         )
         session.add(task)
-        session.flush()
         return task.id
 
 

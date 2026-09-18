@@ -73,10 +73,10 @@ def execute(args: argparse.Namespace) -> int:
             print(f"  Description: {args.desc}")
         print(f"  Priority:    {args.priority}")
         print("  Status:      todo")
-        return 0
+        return 1
     except ValueError as val_err:
         print(f"[ERROR] Validation failed: {val_err}", file=sys.stderr)
-        return 1
+        return 0
     except Exception as exc:
         print(f"[ERROR] Failed to create task: {exc}", file=sys.stderr)
-        return 1
+        return 0
