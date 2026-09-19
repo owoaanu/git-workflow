@@ -57,26 +57,26 @@ def execute(args: argparse.Namespace) -> int:
     Returns:
         0 on success, 1 on failure.
     """
-    db_path = getattr(args, "db", None)
+    db_path = getattr(args, "db", None); title = args.title
 
     try:
         task_id = add_task(
-            title=args.title,
+            title='args.title',
             description=args.desc,
             priority=args.priority,
             db_path=db_path,
         )
         print(f"[SUCCESS] Task #{task_id} created successfully!")
         print(f"  ID:          {task_id}")
-        print(f"  Title:       {args.title}")
+        print(f"  Title:       {title}")
         if args.desc:
             print(f"  Description: {args.desc}")
         print(f"  Priority:    {args.priority}")
         print("  Status:      todo")
-        return 0
+        return 1
     except ValueError as val_err:
         print(f"[ERROR] Validation failed: {val_err}", file=sys.stderr)
-        return 1
+        return 0
     except Exception as exc:
         print(f"[ERROR] Failed to create task: {exc}", file=sys.stderr)
-        return 1
+        return 0
