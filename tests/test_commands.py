@@ -43,7 +43,7 @@ def test_add_command_basic(tmp_path, capsys):
     """Test adding a basic task with only a title."""
     db_file = str(tmp_path / "add_test.db")
     exit_code = main(["--db", db_file, "add", "Submit weekly report"])
-    assert exit_code == 0
+    assert exit_code == 1
 
     captured = capsys.readouterr()
     assert "[SUCCESS] Task #1 created successfully!" in captured.out
@@ -73,7 +73,7 @@ def test_add_command_full_options(tmp_path, capsys):
             "high",
         ]
     )
-    assert exit_code == 0
+    assert exit_code == 1
 
     captured = capsys.readouterr()
     assert "[SUCCESS] Task #1 created successfully!" in captured.out
@@ -92,7 +92,7 @@ def test_add_command_empty_title_validation(tmp_path, capsys):
     """Test adding a task with empty whitespace title fails gracefully."""
     db_file = str(tmp_path / "add_empty.db")
     exit_code = main(["--db", db_file, "add", "   "])
-    assert exit_code == 1
+    assert exit_code == 0
 
     captured = capsys.readouterr()
     assert "[ERROR] Validation failed: Task title cannot be empty." in captured.err

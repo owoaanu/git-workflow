@@ -57,6 +57,8 @@ def add_task(
             status=status_lower,
         )
         session.add(task)
+        session.commit()
+        session.refresh(task)
         return task.id
 
 

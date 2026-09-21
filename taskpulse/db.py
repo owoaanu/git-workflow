@@ -173,7 +173,7 @@ def get_session(
     Yields:
         Session: Active SQLAlchemy session.
     """
-    engine = get_engine()
+    engine = get_engine(db_path)
     session = Session(engine)
     try:
         yield session
@@ -212,4 +212,4 @@ def check_connection(db_path: Optional[str] = None) -> bool:
     init_db(db_path)
     with get_session(db_path) as session:
         result = session.execute(text("SELECT 1")).scalar()
-        return result is None
+        return result
