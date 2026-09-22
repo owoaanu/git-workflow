@@ -16,7 +16,7 @@ TaskPulse uses modern **SQLAlchemy 2.0** ORM for type-safe database models and q
 ```text
 taskpulse/
 ├── .github/
-│   ├── PULL_REQUEST_TEMPLATE.md      # Standard PR structure with verification checklist
+│   ├── PULL_REQUEST_TEMPLATE.md      # Simplified PR structure (What Changed, Why, How to Test)
 │   └── workflows/
 │       └── lint-and-test.yml         # GitHub Actions CI matrix (Py 3.9 - 3.12, flake8, black, pytest)
 ├── taskpulse/

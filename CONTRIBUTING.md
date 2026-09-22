@@ -164,7 +164,7 @@ git push -u origin feature/my-new-task
 ## Pull Request Process & Code Review
 
 1. **Open a PR**: Go to GitHub and open a Pull Request from your branch against `main`.
-2. **Fill Out PR Template**: Fill out every section of the Pull Request Template (Summary, Related Task, Checklist).
+2. **Fill Out PR Template**: Fill out every section of the Pull Request Template (What Changed, Why, How to Test).
 3. **CI Checks**: Ensure all GitHub Actions checks (lint, format, test) pass green.
 4. **Request Review**: Tag a mentor or fellow intern for review.
 5. **Address Feedback**:
