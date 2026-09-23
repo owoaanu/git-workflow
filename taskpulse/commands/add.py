@@ -22,8 +22,9 @@ def register_subparser(
         description=(
             "Insert a new task into SQLite with title, optional description, "
             "and priority."
-        ),
+            ),
     )
+    
     parser.add_argument(
         "title",
         type=str,

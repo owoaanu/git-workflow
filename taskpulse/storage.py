@@ -88,26 +88,22 @@ def list_tasks(
     priority: Optional[str] = None,
     db_path: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """List tasks, optionally filtered by status and/or priority.
 
-    TODO (Intern Task 1 - SQLAlchemy 2.0 query):
-    1. Initialize db and open a session:
-           init_db(db_path)
-           with get_session(db_path) as session:
-    2. Build SQLAlchemy 2.0 select statement:
-           stmt = select(Task)
-           if status:
-               stmt = stmt.where(Task.status == status.lower().strip())
-           if priority:
-               stmt = stmt.where(Task.priority == priority.lower().strip())
-    3. Order by ID and execute:
-           tasks = session.scalars(stmt.order_by(Task.id)).all()
-           return [t.to_dict() for t in tasks]
-    """
-    raise NotImplementedError(
-        "list_tasks() is a starter task for interns! "
-        "See CONTRIBUTING.md for instructions."
-    )
+    init_db(db_path)
+    with get_session(db_path) as session:
+        stmt = select(Task)
+
+        if status:
+            stmt = stmt.where(Task.status == status.lower().strip())
+
+        if priority:
+            stmt = stmt.where(Task.priority == priority.lower().strip())
+
+        tasks = session.scalars(stmt.order_by (Task.id)).all()
+        return [t.to_dict() for t in tasks]
+
+    """List tasks, optionally filtered by status and/or priority."""
+
 
 
 def update_task_status(

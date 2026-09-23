@@ -8,7 +8,7 @@ import sys
 from typing import List, Optional
 
 from taskpulse import __version__
-from taskpulse.commands import add, ping
+from taskpulse.commands import add, ping, list
 
 # Registry of active subcommand modules.
 # Interns: When you implement a new command (e.g. list, complete, delete, export),
@@ -16,6 +16,7 @@ from taskpulse.commands import add, ping
 COMMAND_MODULES = [
     ping,
     add,
+    list,
     # TODO (Intern Task 1): Import and add `list` command module here
     # TODO (Intern Task 2): Import and add `complete` command module here
     # TODO (Intern Task 3): Import and add `delete` command module here
