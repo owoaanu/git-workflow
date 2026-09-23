@@ -3,7 +3,7 @@
 import pytest
 from taskpulse import __version__
 from taskpulse.cli import main
-from taskpulse.storage import get_task
+from taskpulse.storage import get_task, add_task
 
 
 def test_cli_help(capsys):
@@ -158,3 +158,67 @@ def test_add_command_unexpected_exception(tmp_path, capsys, monkeypatch):
     assert exit_code == 1
     captured = capsys.readouterr()
     assert "[ERROR] Failed to create task: Disk full" in captured.err
+
+def test_taskpulse_complete_command(tmp_path, capsys):
+    """Test updating a task with status of done."""
+    db_file = str(tmp_path / "update_status_test.db")
+    exit_code = main(
+            [
+                "--db",
+                db_file,
+                "add",
+                "Refactor auth service",
+                "--desc",
+                "Migrate tokens to JWT",
+                "--priority",
+                "high",
+            ]
+        )
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    assert "[SUCCESS] Task #1 created successfully!" in captured.out
+    assert "Refactor auth service" in captured.out
+    assert "Description: Migrate tokens to JWT" in captured.out
+    assert "Priority:    high" in captured.out
+    
+    task = get_task(1, db_path=db_file)
+    assert task is not None
+    assert task["title"] == "Refactor auth service"
+    assert task["description"] == "Migrate tokens to JWT"
+    assert task["priority"] == "high"
+
+    exit_code = main(
+        [
+            "--db",
+            db_file,
+            "complete",
+            "1",
+        ]
+    )
+    assert exit_code == 0
+
+    captured = capsys.readouterr()
+    assert "[SUCCESS] Task #1 marked as done!" in captured.out
+    #assert "Status:    done" in captured.out
+
+    task = get_task(1, db_path=db_file)
+    assert task is not None
+    assert task["status"] == "done"
+
+def test_update_status_invalid_status(tmp_path):
+    """Test updating a task with an invalid status is rejected by argparse."""
+    db_file = str(tmp_path / "add_invalid_status.db")
+    with pytest.raises(SystemExit) as exc_info:
+        main(
+            [
+                "--db",
+                db_file,
+                "complete",
+                "Invalid Status Task",
+                "--status",
+                "completed",
+            ]
+        )
+    # Argparse exits with code 2 on invalid choice
+    assert exc_info.value.code == 2
