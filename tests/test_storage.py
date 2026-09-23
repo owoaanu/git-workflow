@@ -83,8 +83,46 @@ def test_starter_stubs_raise_not_implemented(tmp_path):
     with pytest.raises(NotImplementedError, match="list_tasks"):
         list_tasks(db_path=db_file)
 
-    with pytest.raises(NotImplementedError, match="update_task_status"):
-        update_task_status(1, "done", db_path=db_file)
+    # with pytest.raises(NotImplementedError, match="update_task_status"):
+    #     update_task_status(1, "done", db_path=db_file)
 
     with pytest.raises(NotImplementedError, match="delete_task"):
         delete_task(1, db_path=db_file)
+
+def test_successful_done_status_update(tmp_path):
+    """Test updating the status of a task to done."""
+    db_file = str(tmp_path / "test_tasks.db")
+    task_id = add_task(
+            title="Setup CI",
+            description="Configure GitHub Actions workflow for lint and test",
+            priority="high",
+            status="in_progress",
+            db_path=db_file,
+        )
+    task_update = update_task_status(
+        task_id=task_id,
+        status="done",
+        db_path=db_file,
+    )
+    assert task_update is True
+    task = get_task(1, db_path=db_file)
+    assert task is not None
+    assert task["status"] == "done"
+
+def test_updating_nonexistent_id(tmp_path):
+    """Test updating the status of a task to done."""
+    db_file = str(tmp_path / "test_tasks.db")
+    task_update = update_task_status(
+        task_id=9999,
+        status="done",
+        db_path=db_file,
+    )
+    assert task_update is False
+    task = get_task(9999, db_path=db_file)
+    assert task is None
+
+def test_updating_with_invalid_status(tmp_path):
+    """Test updating the status of a task to an invalid status."""
+    db_file = str(tmp_path / "test_tasks.db")
+    with pytest.raises(ValueError, match="Invalid status"):
+        update_task_status(task_id=1, status="today", db_path=db_file)

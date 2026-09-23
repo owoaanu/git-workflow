@@ -49,6 +49,7 @@ def add_task(
         raise ValueError(f"Invalid status '{status}'. Must be one of: {valid_s}")
 
     init_db(db_path)
+
     with get_session(db_path) as session:
         task = Task(
             title=cleaned_title,
@@ -124,10 +125,26 @@ def update_task_status(
     4. Update attribute: task.status = status.lower().strip()
     5. Return True (session commits automatically on context manager exit).
     """
-    raise NotImplementedError(
-        "update_task_status() is a starter task for interns! "
-        "See CONTRIBUTING.md for instructions."
-    )
+    status_lower = status.lower().strip()
+    if status_lower not in VALID_STATUSES:
+        if status_lower != "done":
+            raise ValueError(f"Invalid status '{status}'. Must be done")
+
+    init_db(db_path)
+    
+    with get_session(db_path) as session:
+        task = session.get(Task, task_id)
+        if task is None:
+            return False
+        
+        task.status = status.lower().strip()
+        session.commit()
+        session.refresh(task)
+        return True
+    # raise NotImplementedError(
+    #     "update_task_status() is a starter task for interns! "
+    #     "See CONTRIBUTING.md for instructions."
+    # )
 
 
 def delete_task(task_id: int, db_path: Optional[str] = None) -> bool:
